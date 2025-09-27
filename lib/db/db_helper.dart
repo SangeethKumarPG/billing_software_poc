@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/service.dart';
 import '../models/bill.dart';
 import '../models/staff.dart';
+import '../models/inventory.dart';
 
 class DBHelper {
   static late Database _db;
@@ -14,7 +15,7 @@ class DBHelper {
     String dbPath;
 
     if (kIsWeb) {
-      dbPath = "billing_app.db";
+      dbPath = "billing_app.db"; // On web, file path is virtual
     } else {
       final dir = await getApplicationDocumentsDirectory();
       dbPath = join(dir.path, "billing_app.db");
@@ -23,15 +24,17 @@ class DBHelper {
     _db = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 2, 
+        version: 3, // increment version when adding tables/columns
         onCreate: (db, version) async {
           await _createTables(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
+          // Drop old tables if needed (simpler, but clears data)
           await db.execute("DROP TABLE IF EXISTS services");
+          await db.execute("DROP TABLE IF EXISTS staff");
           await db.execute("DROP TABLE IF EXISTS bills");
           await db.execute("DROP TABLE IF EXISTS bill_items");
-          await db.execute("DROP TABLE IF EXISTS staff");
+          await db.execute("DROP TABLE IF EXISTS inventory");
           await _createTables(db);
         },
       ),
@@ -81,6 +84,16 @@ class DBHelper {
         staffId INTEGER,
         staffName TEXT,
         FOREIGN KEY(billId) REFERENCES bills(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        price REAL NOT NULL,
+        category TEXT
       )
     ''');
   }
@@ -141,4 +154,20 @@ class DBHelper {
     }
     return bills;
   }
+
+  // ---------------- INVENTORY ----------------
+  static Future<int> insertInventoryItem(InventoryItem item) async =>
+      await _db.insert("inventory", item.toMap());
+
+  static Future<List<InventoryItem>> getInventory() async {
+    final rows = await _db.query("inventory", orderBy: "name");
+    return rows.map((r) => InventoryItem.fromMap(r)).toList();
+  }
+
+  static Future<int> updateInventoryItem(InventoryItem item) async =>
+      await _db.update("inventory", item.toMap(),
+          where: "id=?", whereArgs: [item.id]);
+
+  static Future<int> deleteInventoryItem(int id) async =>
+      await _db.delete("inventory", where: "id=?", whereArgs: [id]);
 }

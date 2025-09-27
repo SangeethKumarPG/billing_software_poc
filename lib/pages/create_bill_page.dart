@@ -5,6 +5,7 @@ import '../models/bill.dart';
 import '../models/service.dart';
 import '../models/staff.dart';
 import 'invoice_generator.dart';
+import '../utils/thermal_printer.dart'; // ✅ add this import
 
 class CreateBillPage extends StatefulWidget {
   const CreateBillPage({super.key});
@@ -17,7 +18,7 @@ class _CreateBillPageState extends State<CreateBillPage> {
   List<Service> _services = [];
   List<BillItem> _items = [];
   List<Staff> _staff = [];
-  Staff? _selectedStaff; 
+  Staff? _selectedStaff;
 
   final customerC = TextEditingController();
 
@@ -50,19 +51,19 @@ class _CreateBillPageState extends State<CreateBillPage> {
   double get total =>
       _items.fold(0, (sum, i) => sum + i.unitPrice * i.quantity);
 
-  Future<void> _saveBill() async {
+  Future<Bill?> _saveBillToDb() async {
     if (_selectedStaff == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select a staff")),
       );
-      return;
+      return null;
     }
 
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please add at least one service")),
       );
-      return;
+      return null;
     }
 
     final bill = Bill(
@@ -77,10 +78,23 @@ class _CreateBillPageState extends State<CreateBillPage> {
 
     final id = await DBHelper.insertBill(bill);
     final savedBills = await DBHelper.getBills();
-    final saved = savedBills.firstWhere((b) => b.id == id);
+    return savedBills.firstWhere((b) => b.id == id);
+  }
 
-    await InvoiceGenerator.printBill(saved);
-    Navigator.pop(context);
+  Future<void> _saveAndPrintPdf() async {
+    final saved = await _saveBillToDb();
+    if (saved != null) {
+      await InvoiceGenerator.printBill(saved);
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _saveAndPrintThermal() async {
+    final saved = await _saveBillToDb();
+    if (saved != null) {
+      await ThermalPrinterHelper.printCustomerCopy(saved);
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -166,11 +180,21 @@ class _CreateBillPageState extends State<CreateBillPage> {
             ),
             const SizedBox(height: 12),
 
-            ElevatedButton.icon(
-              onPressed: _saveBill,
-              icon: const Icon(Icons.save),
-              label: const Text("Save & Print"),
-            )
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _saveAndPrintPdf,
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text("Save & Print PDF"),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _saveAndPrintThermal,
+                  icon: const Icon(Icons.print),
+                  label: const Text("Thermal Copy"),
+                ),
+              ],
+            ),
           ],
         ),
       ),

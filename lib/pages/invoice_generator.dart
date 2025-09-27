@@ -31,7 +31,7 @@ class InvoiceGenerator {
           pw.Divider(),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text("Grand Total: ₹${bill.total.toStringAsFixed(2)}",
+            child: pw.Text("Grand Total: Rs. ${bill.total.toStringAsFixed(2)}",
                 style: pw.TextStyle(fontSize: 16)),
           ),
         ],

@@ -4,6 +4,7 @@ import 'services_page.dart';
 import 'bills_page.dart';
 import 'staff_page.dart';
 import 'reports_page.dart';
+import 'inventory_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,6 +22,7 @@ class _HomePageState extends State<HomePage> {
     BillsPage(),
     StaffPage(),
     ReportsPage(),
+    InventoryPage(),
   ];
 
   final List<String> _titles = const [
@@ -28,7 +30,8 @@ class _HomePageState extends State<HomePage> {
     "Services",
     "Bills",
     "Staff",
-    "Reports"
+    "Reports",
+    "Inventory"
   ];
 
   @override
@@ -61,6 +64,7 @@ class _HomePageState extends State<HomePage> {
                 icon: Icon(Icons.bar_chart),
                 label: Text("Reports"),
               ),
+              NavigationRailDestination(icon: Icon(Icons.inventory), label: Text("Inventory"))
             ],
           ),
           Expanded(
