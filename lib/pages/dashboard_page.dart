@@ -12,8 +12,9 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   double todaySales = 0;
   double monthlySales = 0;
+  double previousMonthSales = 0;
   int totalBills = 0;
-  Map<String, double> staffPerformance = {}; 
+  Map<String, double> staffPerformance = {};
 
   @override
   void initState() {
@@ -25,18 +26,26 @@ class _DashboardPageState extends State<DashboardPage> {
     final bills = await DBHelper.getBills();
     final now = DateTime.now();
 
-    // Today’s sales
+    //  Today’s Sales
     final today = bills.where((b) =>
         b.date.year == now.year &&
         b.date.month == now.month &&
         b.date.day == now.day);
     final todayTotal = today.fold(0.0, (sum, b) => sum + b.total);
 
-    // This month’s sales
-    final month = bills.where(
-        (b) => b.date.year == now.year && b.date.month == now.month);
-    final monthTotal = month.fold(0.0, (sum, b) => sum + b.total);
+    //  This Month’s Sales
+    final monthBills =
+        bills.where((b) => b.date.year == now.year && b.date.month == now.month);
+    final monthTotal = monthBills.fold(0.0, (sum, b) => sum + b.total);
 
+    //  Previous Month’s Sales
+    final previousMonth = now.month == 1 ? 12 : now.month - 1;
+    final previousYear = now.month == 1 ? now.year - 1 : now.year;
+    final prevMonthBills = bills.where(
+        (b) => b.date.year == previousYear && b.date.month == previousMonth);
+    final prevMonthTotal = prevMonthBills.fold(0.0, (sum, b) => sum + b.total);
+
+    //  Staff-wise Performance
     final Map<String, double> staffTotals = {};
     for (final b in bills) {
       final name = b.staffName ?? "Unknown";
@@ -46,6 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       todaySales = todayTotal;
       monthlySales = monthTotal;
+      previousMonthSales = prevMonthTotal;
       totalBills = bills.length;
       staffPerformance = staffTotals;
     });
@@ -59,14 +69,21 @@ class _DashboardPageState extends State<DashboardPage> {
         padding: const EdgeInsets.all(16),
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatCard("Today’s Sales", "₹${todaySales.toStringAsFixed(2)}", Icons.today),
+              _buildStatCard(
+                  "Today’s Sales", "₹${todaySales.toStringAsFixed(2)}", Icons.today),
               const SizedBox(width: 16),
-              _buildStatCard("Monthly Sales", "₹${monthlySales.toStringAsFixed(2)}", Icons.calendar_month),
+              _buildStatCard("This Month", "₹${monthlySales.toStringAsFixed(2)}",
+                  Icons.calendar_month),
+              const SizedBox(width: 16),
+              _buildStatCard("Previous Month",
+                  "₹${previousMonthSales.toStringAsFixed(2)}", Icons.history),
             ],
           ),
           const SizedBox(height: 16),
-          _buildStatCard("Total Bills", totalBills.toString(), Icons.receipt_long),
+          _buildStatCard(
+              "Total Bills", totalBills.toString(), Icons.receipt_long),
 
           const SizedBox(height: 24),
           const Text("Staff Performance",

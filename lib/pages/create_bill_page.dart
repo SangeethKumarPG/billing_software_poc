@@ -5,7 +5,7 @@ import '../models/bill.dart';
 import '../models/service.dart';
 import '../models/staff.dart';
 import 'invoice_generator.dart';
-import '../utils/thermal_printer.dart'; // ✅ add this import
+import '../utils/thermal_printer.dart';
 
 class CreateBillPage extends StatefulWidget {
   const CreateBillPage({super.key});
@@ -21,6 +21,7 @@ class _CreateBillPageState extends State<CreateBillPage> {
   Staff? _selectedStaff;
 
   final customerC = TextEditingController();
+  final discountC = TextEditingController(text: "0");
 
   @override
   void initState() {
@@ -48,8 +49,30 @@ class _CreateBillPageState extends State<CreateBillPage> {
     });
   }
 
-  double get total =>
+  double get subtotal =>
       _items.fold(0, (sum, i) => sum + i.unitPrice * i.quantity);
+
+  double get discountPercent =>
+      double.tryParse(discountC.text.trim())?.clamp(0, 100) ?? 0;
+
+  double get total => subtotal - (subtotal * discountPercent / 100);
+
+  Future<void> _handleOvertime(Staff staff) async {
+    final now = DateTime.now();
+    if (now.hour >= 19) {
+      // after 7PM
+      final updated = Staff(
+        id: staff.id,
+        name: staff.name,
+        salary: staff.salary + 60, // add ₹60 overtime
+        gender: staff.gender,
+      );
+      await DBHelper.updateStaff(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("${staff.name} earned ₹60 overtime.")),
+      );
+    }
+  }
 
   Future<Bill?> _saveBillToDb() async {
     if (_selectedStaff == null) {
@@ -65,6 +88,9 @@ class _CreateBillPageState extends State<CreateBillPage> {
       );
       return null;
     }
+
+    // 🔹 Apply overtime check before saving
+    await _handleOvertime(_selectedStaff!);
 
     final bill = Bill(
       invoiceNo: const Uuid().v4().substring(0, 8).toUpperCase(),
@@ -105,12 +131,14 @@ class _CreateBillPageState extends State<CreateBillPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            // Customer name
             TextField(
               controller: customerC,
               decoration: const InputDecoration(labelText: "Customer Name"),
             ),
             const SizedBox(height: 12),
 
+            // Select staff
             DropdownButtonFormField<Staff>(
               value: _selectedStaff,
               decoration: const InputDecoration(labelText: "Select Staff"),
@@ -124,6 +152,20 @@ class _CreateBillPageState extends State<CreateBillPage> {
             ),
             const SizedBox(height: 16),
 
+            // Discount input
+            TextField(
+              controller: discountC,
+              decoration: const InputDecoration(
+                labelText: "Discount (%)",
+                prefixIcon: Icon(Icons.percent),
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+
+            // Services buttons
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -139,6 +181,7 @@ class _CreateBillPageState extends State<CreateBillPage> {
             ),
             const SizedBox(height: 16),
 
+            // Bill items
             Expanded(
               child: ListView.builder(
                 itemCount: _items.length,
@@ -173,13 +216,22 @@ class _CreateBillPageState extends State<CreateBillPage> {
               ),
             ),
 
-            Text(
-              "Total: ₹${total.toStringAsFixed(2)}",
-              style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold),
+            // Totals
+            Column(
+              children: [
+                Text("Subtotal: ₹${subtotal.toStringAsFixed(2)}"),
+                Text("Discount: ${discountPercent.toStringAsFixed(1)}%"),
+                const SizedBox(height: 4),
+                Text(
+                  "Total: ₹${total.toStringAsFixed(2)}",
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
 
+            // Action buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [

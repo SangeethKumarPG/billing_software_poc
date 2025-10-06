@@ -1,3 +1,4 @@
+import 'package:billing_software/pages/purchase_report_page.dart';
 import 'package:flutter/material.dart';
 import 'dashboard_page.dart';
 import 'services_page.dart';
@@ -23,6 +24,7 @@ class _HomePageState extends State<HomePage> {
     StaffPage(),
     ReportsPage(),
     InventoryPage(),
+    PurchaseReportPage(),
   ];
 
   final List<String> _titles = const [
@@ -31,7 +33,8 @@ class _HomePageState extends State<HomePage> {
     "Bills",
     "Staff",
     "Reports",
-    "Inventory"
+    "Inventory",
+    "Purchase Report"
   ];
 
   @override
@@ -64,7 +67,11 @@ class _HomePageState extends State<HomePage> {
                 icon: Icon(Icons.bar_chart),
                 label: Text("Reports"),
               ),
-              NavigationRailDestination(icon: Icon(Icons.inventory), label: Text("Inventory"))
+              NavigationRailDestination(icon: Icon(Icons.inventory), label: Text("Inventory")),
+              NavigationRailDestination(
+                icon: Icon(Icons.shopping_cart),
+                label: Text("Purchase Report"),
+              ), 
             ],
           ),
           Expanded(

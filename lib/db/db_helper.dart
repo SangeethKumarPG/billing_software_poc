@@ -24,23 +24,24 @@ class DBHelper {
     _db = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 3, // increment version when adding tables/columns
+        version: 4, // incremented for new table
         onCreate: (db, version) async {
           await _createTables(db);
         },
         onUpgrade: (db, oldVersion, newVersion) async {
-          // Drop old tables if needed (simpler, but clears data)
           await db.execute("DROP TABLE IF EXISTS services");
           await db.execute("DROP TABLE IF EXISTS staff");
           await db.execute("DROP TABLE IF EXISTS bills");
           await db.execute("DROP TABLE IF EXISTS bill_items");
           await db.execute("DROP TABLE IF EXISTS inventory");
+          await db.execute("DROP TABLE IF EXISTS inventory_history");
           await _createTables(db);
         },
       ),
     );
   }
 
+  // ---------------- CREATE TABLES ----------------
   static Future<void> _createTables(Database db) async {
     await db.execute('''
       CREATE TABLE services (
@@ -94,6 +95,18 @@ class DBHelper {
         quantity INTEGER NOT NULL,
         price REAL NOT NULL,
         category TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE inventory_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        itemId INTEGER,
+        itemName TEXT,
+        action TEXT,
+        quantity INTEGER,
+        amount REAL,
+        date TEXT
       )
     ''');
   }
@@ -156,8 +169,17 @@ class DBHelper {
   }
 
   // ---------------- INVENTORY ----------------
-  static Future<int> insertInventoryItem(InventoryItem item) async =>
-      await _db.insert("inventory", item.toMap());
+  static Future<int> insertInventoryItem(InventoryItem item) async {
+    final id = await _db.insert("inventory", item.toMap());
+    await insertInventoryHistory(
+      itemId: id,
+      itemName: item.name,
+      action: "purchase",
+      quantity: item.quantity,
+      amount: item.price * item.quantity,
+    );
+    return id;
+  }
 
   static Future<List<InventoryItem>> getInventory() async {
     final rows = await _db.query("inventory", orderBy: "name");
@@ -170,4 +192,26 @@ class DBHelper {
 
   static Future<int> deleteInventoryItem(int id) async =>
       await _db.delete("inventory", where: "id=?", whereArgs: [id]);
+
+  // ---------------- INVENTORY HISTORY ----------------
+  static Future<void> insertInventoryHistory({
+    required int itemId,
+    required String itemName,
+    required String action, // 'purchase' or 'usage'
+    required int quantity,
+    required double amount,
+  }) async {
+    await _db.insert("inventory_history", {
+      "itemId": itemId,
+      "itemName": itemName,
+      "action": action,
+      "quantity": quantity,
+      "amount": amount,
+      "date": DateTime.now().toIso8601String(),
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getInventoryHistory() async {
+    return await _db.query("inventory_history", orderBy: "date DESC");
+  }
 }

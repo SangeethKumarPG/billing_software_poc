@@ -23,6 +23,51 @@ class _InventoryPageState extends State<InventoryPage> {
     setState(() => _items = data);
   }
 
+  Future<void> _updateQuantity(InventoryItem item, int change) async {
+    final updatedQty = (item.quantity + change).clamp(0, double.infinity).toInt();
+
+    // Determine the action type based on change
+    String action = change > 0 ? "purchase" : "usage";
+
+    // Calculate the amount for this action
+    final quantityChanged = change.abs();
+    final amount = item.price * quantityChanged;
+
+    // Create updated item
+    final updatedItem = InventoryItem(
+      id: item.id,
+      name: item.name,
+      quantity: updatedQty,
+      price: item.price,
+      category: item.category,
+    );
+
+    // Update quantity in main inventory table
+    await DBHelper.updateInventoryItem(updatedItem);
+
+    // Record this change in the inventory history table
+    await DBHelper.insertInventoryHistory(
+      itemId: item.id!,
+      itemName: item.name,
+      action: action,
+      quantity: quantityChanged,
+      amount: amount,
+    );
+
+    // Refresh UI
+    await _loadInventory();
+
+    // Show quick feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "${action == 'purchase' ? 'Added' : 'Used'} $quantityChanged ${item.name}(s) — ₹${amount.toStringAsFixed(2)}",
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _showDialog([InventoryItem? item]) async {
     final nameC = TextEditingController(text: item?.name ?? "");
     final qtyC = TextEditingController(text: item?.quantity.toString() ?? "");
@@ -37,15 +82,27 @@ class _InventoryPageState extends State<InventoryPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nameC, decoration: const InputDecoration(labelText: "Name")),
-              TextField(controller: qtyC, decoration: const InputDecoration(labelText: "Quantity"), keyboardType: TextInputType.number),
-              TextField(controller: priceC, decoration: const InputDecoration(labelText: "Price"), keyboardType: TextInputType.number),
-              TextField(controller: catC, decoration: const InputDecoration(labelText: "Category")),
+              TextField(
+                  controller: nameC,
+                  decoration: const InputDecoration(labelText: "Name")),
+              TextField(
+                  controller: qtyC,
+                  decoration: const InputDecoration(labelText: "Quantity"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: priceC,
+                  decoration: const InputDecoration(labelText: "Price"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: catC,
+                  decoration: const InputDecoration(labelText: "Category")),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () async {
               final newItem = InventoryItem(
@@ -86,16 +143,35 @@ class _InventoryPageState extends State<InventoryPage> {
           rows: _items.map((item) {
             return DataRow(cells: [
               DataCell(Text(item.name)),
-              DataCell(Text(item.quantity.toString())),
+              DataCell(Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline),
+                    onPressed: item.quantity > 0
+                        ? () => _updateQuantity(item, -1)
+                        : null,
+                  ),
+                  Text(item.quantity.toString(),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () => _updateQuantity(item, 1),
+                  ),
+                ],
+              )),
               DataCell(Text("₹${item.price.toStringAsFixed(2)}")),
               DataCell(Text(item.category ?? "")),
               DataCell(Row(
                 children: [
-                  IconButton(icon: const Icon(Icons.edit), onPressed: () => _showDialog(item)),
-                  IconButton(icon: const Icon(Icons.delete), onPressed: () async {
-                    await DBHelper.deleteInventoryItem(item.id!);
-                    _loadInventory();
-                  }),
+                  IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => _showDialog(item)),
+                  IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () async {
+                        await DBHelper.deleteInventoryItem(item.id!);
+                        _loadInventory();
+                      }),
                 ],
               )),
             ]);
