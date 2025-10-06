@@ -26,6 +26,8 @@ class _StaffPageState extends State<StaffPage> {
   Future<void> _showDialog([Staff? staff]) async {
     final nameC = TextEditingController(text: staff?.name ?? "");
     final salaryC = TextEditingController(text: staff?.salary.toString() ?? "");
+    final overtimeC = TextEditingController(text: staff?.overtime.toString() ?? "0");
+    final incentiveC = TextEditingController(text: staff?.incentive.toString() ?? "0");
     String selectedGender = staff?.gender ?? "Unspecified";
 
     await showDialog(
@@ -37,12 +39,24 @@ class _StaffPageState extends State<StaffPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                  controller: nameC,
-                  decoration: const InputDecoration(labelText: "Name")),
+                controller: nameC,
+                decoration: const InputDecoration(labelText: "Name"),
+              ),
               TextField(
-                  controller: salaryC,
-                  decoration: const InputDecoration(labelText: "Salary"),
-                  keyboardType: TextInputType.number),
+                controller: salaryC,
+                decoration: const InputDecoration(labelText: "Base Salary (₹)"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: overtimeC,
+                decoration: const InputDecoration(labelText: "Overtime Amount (₹)"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: incentiveC,
+                decoration: const InputDecoration(labelText: "Incentive Amount (₹)"),
+                keyboardType: TextInputType.number,
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: selectedGender,
@@ -59,25 +73,31 @@ class _StaffPageState extends State<StaffPage> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
           ElevatedButton(
-              onPressed: () async {
-                final s = Staff(
-                  id: staff?.id,
-                  name: nameC.text.trim(),
-                  salary: double.tryParse(salaryC.text) ?? 0.0,
-                  gender: selectedGender,
-                );
-                if (staff == null) {
-                  await DBHelper.insertStaff(s);
-                } else {
-                  await DBHelper.updateStaff(s);
-                }
-                Navigator.pop(context);
-                _loadStaff();
-              },
-              child: const Text("Save"))
+            onPressed: () async {
+              final s = Staff(
+                id: staff?.id,
+                name: nameC.text.trim(),
+                salary: double.tryParse(salaryC.text) ?? 0.0,
+                overtime: double.tryParse(overtimeC.text) ?? 0.0,
+                incentive: double.tryParse(incentiveC.text) ?? 0.0,
+                gender: selectedGender,
+              );
+
+              if (staff == null) {
+                await DBHelper.insertStaff(s);
+              } else {
+                await DBHelper.updateStaff(s);
+              }
+
+              Navigator.pop(context);
+              _loadStaff();
+            },
+            child: const Text("Save"),
+          )
         ],
       ),
     );
@@ -86,30 +106,49 @@ class _StaffPageState extends State<StaffPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text("Staff Management")),
       body: _staff.isEmpty
           ? const Center(child: Text("No staff added yet"))
           : ListView.builder(
               itemCount: _staff.length,
               itemBuilder: (_, i) {
                 final s = _staff[i];
-                return ListTile(
-                  leading: const Icon(Icons.person, color: Colors.indigo),
-                  title: Text(s.name),
-                  subtitle: Text(
-                      "Salary: ₹${s.salary.toStringAsFixed(2)} • Gender: ${s.gender}"),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
+                final totalPay = s.salary + s.overtime + s.incentive;
+
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  elevation: 2,
+                  child: ListTile(
+                    leading: const Icon(Icons.person, color: Colors.indigo),
+                    title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Gender: ${s.gender}"),
+                        Text("Base Salary: ₹${s.salary.toStringAsFixed(2)}"),
+                        Text("Overtime: ₹${s.overtime.toStringAsFixed(2)}"),
+                        Text("Incentive: ₹${s.incentive.toStringAsFixed(2)}"),
+                        const SizedBox(height: 4),
+                        Text("Total Pay: ₹${totalPay.toStringAsFixed(2)}",
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () => _showDialog(s)),
-                      IconButton(
+                          onPressed: () => _showDialog(s),
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.delete),
                           onPressed: () async {
                             await DBHelper.deleteStaff(s.id!);
                             _loadStaff();
-                          }),
-                    ],
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },

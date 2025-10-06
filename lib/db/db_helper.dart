@@ -24,7 +24,7 @@ class DBHelper {
     _db = await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 4, // incremented for new table
+        version: 5, // incremented for new table
         onCreate: (db, version) async {
           await _createTables(db);
         },
@@ -58,6 +58,8 @@ class DBHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         salary REAL,
+        overtime REAL DEFAULT 0,
+        incentive REAL DEFAULT 0,
         gender TEXT
       )
     ''');

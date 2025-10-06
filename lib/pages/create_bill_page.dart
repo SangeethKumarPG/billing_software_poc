@@ -64,7 +64,9 @@ class _CreateBillPageState extends State<CreateBillPage> {
       final updated = Staff(
         id: staff.id,
         name: staff.name,
-        salary: staff.salary + 60, // add ₹60 overtime
+        salary: staff.salary,
+        overtime: staff.overtime + 60, 
+        incentive: staff.incentive,
         gender: staff.gender,
       );
       await DBHelper.updateStaff(updated);
