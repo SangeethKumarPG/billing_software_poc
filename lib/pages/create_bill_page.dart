@@ -57,22 +57,62 @@ class _CreateBillPageState extends State<CreateBillPage> {
 
   double get total => subtotal - (subtotal * discountPercent / 100);
 
-  Future<void> _handleOvertime(Staff staff) async {
+  Future<void> _handleOvertimeAndIncentives(Staff staff) async {
     final now = DateTime.now();
-    if (now.hour >= 19) {
-      // after 7PM
+    final hour = now.hour;
+    bool eligibleOvertime = false;
+
+    if (staff.gender.toLowerCase() == "female" && hour >= 19) {
+      eligibleOvertime = true;
+    } else if (staff.gender.toLowerCase() == "male" && hour >= 20) {
+      eligibleOvertime = true;
+    }
+
+    double incentiveToAdd = 0.0;
+    final bills = await DBHelper.getBills();
+    final nowMonth = DateTime.now().month;
+    final nowYear = DateTime.now().year;
+
+    final staffBills = bills.where((b) =>
+        b.staffId == staff.id &&
+        b.date.month == nowMonth &&
+        b.date.year == nowYear);
+
+    final monthlyTotal = staffBills.fold(0.0, (sum, b) => sum + b.total);
+
+    if (monthlyTotal > 100000) {
+      incentiveToAdd += staff.salary * 0.05;
+    }
+
+    bool hasBridalService = _items.any((item) =>
+        item.serviceName.toLowerCase().contains("bridal"));
+
+    if (hasBridalService) {
+      incentiveToAdd += staff.salary * 0.10;
+    }
+
+    double overtimeToAdd = eligibleOvertime ? 60 : 0;
+
+    if (incentiveToAdd > 0 || overtimeToAdd > 0) {
       final updated = Staff(
         id: staff.id,
         name: staff.name,
         salary: staff.salary,
-        overtime: staff.overtime + 60, 
-        incentive: staff.incentive,
+        overtime: staff.overtime + overtimeToAdd,
+        incentive: staff.incentive + incentiveToAdd,
         gender: staff.gender,
       );
+
       await DBHelper.updateStaff(updated);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("${staff.name} earned ₹60 overtime.")),
-      );
+
+      String message = "${staff.name} ";
+      if (overtimeToAdd > 0) message += "earned ₹60 overtime. ";
+      if (incentiveToAdd > 0) {
+        message +=
+            "received ₹${incentiveToAdd.toStringAsFixed(2)} incentive.";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -91,8 +131,7 @@ class _CreateBillPageState extends State<CreateBillPage> {
       return null;
     }
 
-    // 🔹 Apply overtime check before saving
-    await _handleOvertime(_selectedStaff!);
+    await _handleOvertimeAndIncentives(_selectedStaff!);
 
     final bill = Bill(
       invoiceNo: const Uuid().v4().substring(0, 8).toUpperCase(),
@@ -133,14 +172,11 @@ class _CreateBillPageState extends State<CreateBillPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Customer name
             TextField(
               controller: customerC,
               decoration: const InputDecoration(labelText: "Customer Name"),
             ),
             const SizedBox(height: 12),
-
-            // Select staff
             DropdownButtonFormField<Staff>(
               value: _selectedStaff,
               decoration: const InputDecoration(labelText: "Select Staff"),
@@ -153,8 +189,6 @@ class _CreateBillPageState extends State<CreateBillPage> {
               onChanged: (s) => setState(() => _selectedStaff = s),
             ),
             const SizedBox(height: 16),
-
-            // Discount input
             TextField(
               controller: discountC,
               decoration: const InputDecoration(
@@ -166,24 +200,53 @@ class _CreateBillPageState extends State<CreateBillPage> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
-
-            // Services buttons
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _services
-                  .map((s) => ElevatedButton(
-                        onPressed: () => _addItem(s),
-                        child: Text(
-                          "${s.name}\n₹${s.price.toStringAsFixed(0)}",
-                          textAlign: TextAlign.center,
+            Expanded(
+              child: GridView.builder(
+                itemCount: _services.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.6,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemBuilder: (_, i) {
+                  final s = _services[i];
+                  return GestureDetector(
+                    onTap: () => _addItem(s),
+                    child: Card(
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      color: Colors.indigo.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              s.name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "₹${s.price.toStringAsFixed(0)}",
+                              style: const TextStyle(
+                                  color: Colors.indigo,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
-                      ))
-                  .toList(),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            const SizedBox(height: 16),
-
-            // Bill items
+            const SizedBox(height: 8),
             Expanded(
               child: ListView.builder(
                 itemCount: _items.length,
@@ -217,8 +280,6 @@ class _CreateBillPageState extends State<CreateBillPage> {
                 },
               ),
             ),
-
-            // Totals
             Column(
               children: [
                 Text("Subtotal: ₹${subtotal.toStringAsFixed(2)}"),
@@ -232,8 +293,6 @@ class _CreateBillPageState extends State<CreateBillPage> {
               ],
             ),
             const SizedBox(height: 12),
-
-            // Action buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
