@@ -54,14 +54,16 @@ class _PurchaseReportPageState extends State<PurchaseReportPage> {
   }
 
   // Helper to get month names
-  List<String> get months => List.generate(12, (i) => DateFormat('MMMM').format(DateTime(0, i + 1)));
+  List<String> get months =>
+      List.generate(12, (i) => DateFormat('MMMM').format(DateTime(0, i + 1)));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Purchase & Usage Report")),
+      // appBar: AppBar(title: const Text("Purchase & Usage Report")),
       body: Column(
         children: [
+          // Month and Year Filters
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -96,7 +98,10 @@ class _PurchaseReportPageState extends State<PurchaseReportPage> {
                     5,
                     (index) {
                       final year = DateTime.now().year - index;
-                      return DropdownMenuItem(value: year, child: Text("$year"));
+                      return DropdownMenuItem(
+                        value: year,
+                        child: Text("$year"),
+                      );
                     },
                   ),
                 ),
@@ -104,57 +109,71 @@ class _PurchaseReportPageState extends State<PurchaseReportPage> {
             ),
           ),
 
+          // Scrollable Table
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text("Date")),
-                  DataColumn(label: Text("Item Name")),
-                  DataColumn(label: Text("Action")),
-                  DataColumn(label: Text("Quantity")),
-                  DataColumn(label: Text("Amount")),
-                ],
-                rows: _history.map((row) {
-                  return DataRow(cells: [
-                    DataCell(Text(DateFormat("dd-MM-yyyy HH:mm")
-                        .format(DateTime.parse(row["date"]).toLocal()))),
-                    DataCell(Text(row["itemName"] ?? "")),
-                    DataCell(Text(
-                      row["action"] ?? "",
-                      style: TextStyle(
-                        color: (row["action"] == "purchase")
-                            ? Colors.green
-                            : Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )),
-                    DataCell(Text(row["quantity"].toString())),
-                    DataCell(Text("₹${(row["amount"] as num).toStringAsFixed(2)}")),
-                  ]);
-                }).toList(),
+            child: Scrollbar(
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text("Date")),
+                      DataColumn(label: Text("Item Name")),
+                      DataColumn(label: Text("Action")),
+                      DataColumn(label: Text("Quantity")),
+                      DataColumn(label: Text("Amount")),
+                    ],
+                    rows: _history.map((row) {
+                      return DataRow(cells: [
+                        DataCell(Text(DateFormat("dd-MM-yyyy HH:mm")
+                            .format(DateTime.parse(row["date"]).toLocal()))),
+                        DataCell(Text(row["itemName"] ?? "")),
+                        DataCell(Text(
+                          row["action"] ?? "",
+                          style: TextStyle(
+                            color: (row["action"] == "purchase")
+                                ? Colors.green
+                                : Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )),
+                        DataCell(Text(row["quantity"].toString())),
+                        DataCell(Text(
+                            "₹${(row["amount"] as num).toStringAsFixed(2)}")),
+                      ]);
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
           ),
 
-          const Divider(),
-          Padding(
+          // Fixed Summary Section
+          const Divider(thickness: 1),
+          Container(
+            color: Colors.grey[100],
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 Text(
                   "Total Purchase Amount: ₹${totalPurchase.toStringAsFixed(2)}",
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.green),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
                 ),
                 Text(
                   "Total Usage Amount: ₹${totalUsage.toStringAsFixed(2)}",
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.red),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
